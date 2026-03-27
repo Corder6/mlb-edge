@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vanguardians FC — MLB Edge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #080c10;
+    --surface:  #0e1419;
+    --border:   #1c2530;
+    --accent:   #f97316;
+    --accent2:  #3b82f6;
+    --green:    #22c55e;
+    --red:      #ef4444;
+    --muted:    #4a5568;
+    --text:     #e2e8f0;
+    --subtext:  #718096;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 28px 32px 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+
+  .wordmark {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 2.4rem;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .wordmark span {
+    color: var(--accent);
+  }
+
+  .date-badge {
+    font-size: 0.7rem;
+    color: var(--subtext);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .tab {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 14px 24px;
+    cursor: pointer;
+    color: var(--subtext);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+
+  .tab:hover { color: var(--text); }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ── MAIN ── */
+  main {
+    padding: 28px 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.25s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── LOADING ── */
+  .loader {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--subtext);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+
+  .loader-bar {
+    width: 200px;
+    height: 2px;
+    background: var(--border);
+    margin: 16px auto 0;
+    overflow: hidden;
+    border-radius: 2px;
+  }
+
+  .loader-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    animation: loading 2s ease-in-out infinite;
+  }
+
+  @keyframes loading {
+    0%   { width: 0%; margin-left: 0; }
+    50%  { width: 60%; margin-left: 20%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+
+  /* ── ERROR ── */
+  .error-box {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 6px;
+    padding: 20px 24px;
+    color: var(--red);
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    margin: 40px 0;
+  }
+
+  /* ── SECTION HEADER ── */
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 1.6rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title .pill {
+    font-size: 0.65rem;
+    background: var(--accent);
+    color: #000;
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  /* ── TABLE ── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+
+  .data-table thead th {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--subtext);
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table tbody tr {
+    border-bottom: 1px solid rgba(28,37,48,0.6);
+    transition: background 0.15s;
+  }
+
+  .data-table tbody tr:hover {
+    background: rgba(249,115,22,0.04);
+  }
+
+  .data-table td {
+    padding: 11px 14px;
+    vertical-align: middle;
+  }
+
+  .rank {
+    color: var(--muted);
+    font-size: 0.65rem;
+    width: 36px;
+  }
+
+  .player-name {
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+
+  .team-badge {
+    display: inline-block;
+    background: var(--border);
+    color: var(--subtext);
+    font-size: 0.6rem;
+    padding: 2px 7px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    font-family: 'Barlow Condensed', sans-serif;
+  }
+
+  .score-cell {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 0.85rem;
+  }
+
+  .score-high { color: var(--green); }
+  .score-mid  { color: var(--accent); }
+  .score-low  { color: var(--subtext); }
+
+  .signal-over {
+    color: var(--green);
+    font-weight: 700;
+    font-size: 0.7rem;
+  }
+
+  .signal-pass {
+    color: var(--muted);
+    font-size: 0.7rem;
+  }
+
+  /* ── NRFI CARDS ── */
+  .nrfi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+
+  .nrfi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    transition: border-color 0.2s;
+  }
+
+  .nrfi-card:hover { border-color: var(--accent); }
+
+  .nrfi-matchup {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 1.2rem;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
+  .nrfi-pitchers {
+    font-size: 0.68rem;
+    color: var(--subtext);
+    margin-bottom: 12px;
+    line-height: 1.6;
+  }
+
+  .nrfi-score-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nrfi-score-label {
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .nrfi-score-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 1.8rem;
+    letter-spacing: 0.04em;
+  }
+
+  .nrfi-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+
+  .nrfi-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent2);
+    transition: width 0.6s ease;
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .stat-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 16px;
+    min-width: 120px;
+  }
+
+  .stat-chip-label {
+    font-size: 0.6rem;
+    color: var(--subtext);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-chip-val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: var(--accent);
+  }
+
+  /* ── REFRESH ── */
+  .refresh-btn {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--subtext);
+    padding: 8px 18px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 32px;
+    color: var(--muted);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    header { padding: 20px 16px 16px; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .tabs  { padding: 0 16px; }
+    main   { padding: 20px 16px; }
+    .wordmark { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="wordmark">Vanguardians <span>FC</span></div>
+    <div style="font-size:0.65rem; color:var(--subtext); margin-top:4px; letter-spacing:0.08em;">MLB EDGE DASHBOARD</div>
+  </div>
+  <div style="text-align:right;">
+    <div class="date-badge"><span class="status-dot"></span><span id="today-date">Loading...</span></div>
+    <button class="refresh-btn" style="margin-top:8px;" onclick="loadAll()">↻ Refresh</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('matchups', this)">🔥 Matchups</button>
+  <button class="tab" onclick="switchTab('props', this)">🎯 Prop Model</button>
+  <button class="tab" onclick="switchTab('nrfi', this)">🚫 NRFI</button>
+  <button class="tab" onclick="switchTab('leaderboard', this)">📊 Leaderboard</button>
+</div>
+
+<main>
+
+  <!-- MATCHUPS -->
+  <div id="panel-matchups" class="panel active">
+    <div id="matchups-content"><div class="loader">LOADING MATCHUPS<div class="loader-bar"><div class="loader-bar-fill"></div></div></div></div>
+  </div>
+
+  <!-- PROPS -->
+  <div id="panel-props" class="panel">
+    <div id="props-content"><div class="loader">LOADING PROP MODEL<div class="loader-bar"><div class="loader-bar-fill"></div></div></div></div>
+  </div>
+
+  <!-- NRFI -->
+  <div id="panel-nrfi" class="panel">
+    <div id="nrfi-content"><div class="loader">LOADING NRFI DATA<div class="loader-bar"><div class="loader-bar-fill"></div></div></div></div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div id="panel-leaderboard" class="panel">
+    <div id="leaderboard-content"><div class="loader">LOADING LEADERBOARD<div class="loader-bar"><div class="loader-bar-fill"></div></div></div></div>
+  </div>
+
+</main>
+
+<footer>VANGUARDIANS FC · MLB EDGE · DATA VIA MLB STATSAPI · REFRESHES ON LOAD</footer>
+
+<script>
+const MLB = "https://statsapi.mlb.com/api/v1";
+
+const TEAM_MAP = { WSH:"WSN", CWS:"CHA", KC:"KCA", SD:"SDP", SF:"SFG", TB:"TBR" };
+function norm(t) { return t ? (TEAM_MAP[t] || t) : "UNK"; }
+
+// ── TAB SWITCHER ──
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ── DATE ──
+function setDate() {
+  const d = new Date();
+  document.getElementById('today-date').textContent =
+    d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' }).toUpperCase();
+}
+
+// ── FETCH HELPERS ──
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("HTTP " + r.status + " — " + url);
+  return r.json();
+}
+
+async function fetchGames() {
+  const today = new Date().toLocaleDateString('en-CA'); // yyyy-MM-dd in local time
+  const data  = await fetchJSON(`${MLB}/schedule?sportId=1&date=${today}&hydrate=probablePitcher,team`);
+  if (!data.dates || !data.dates.length) return [];
+
+  return data.dates[0].games.map(g => ({
+    home:        norm(g.teams.home.team.abbreviation),
+    away:        norm(g.teams.away.team.abbreviation),
+    gamePk:      g.gamePk,
+    homePitcher: g.teams.home.probablePitcher ? g.teams.home.probablePitcher.fullName : "TBD",
+    awayPitcher: g.teams.away.probablePitcher ? g.teams.away.probablePitcher.fullName : "TBD",
+    time:        g.gameDate
+  }));
+}
+
+async function fetchSeason(year) {
+  try {
+    const data = await fetchJSON(`${MLB}/stats?stats=season&group=hitting&season=${year}&playerPool=All&limit=1000`);
+    if (!data.stats || !data.stats[0] || !data.stats[0].splits) return [];
+    return data.stats[0].splits.map(s => {
+      const st = s.stat;
+      const ab = st.atBats || 0, hits = st.hits || 0, ks = st.strikeOuts || 0, pa = st.plateAppearances || 0;
+      return {
+        name: s.player.fullName,
+        team: norm(s.team ? s.team.abbreviation : null),
+        avg:  ab ? hits/ab : 0,
+        kpct: ab ? ks/ab   : 0,
+        cObp: pa ? hits/pa : 0,
+        pa, slg: parseFloat(st.slg) || 0, pcs: 0
+      };
+    }).filter(p => p.team !== "UNK");
+  } catch(e) { return []; }
+}
+
+async function fetchPlayers() {
+  const yr = new Date().getFullYear();
+  const [cur, prev] = await Promise.all([fetchSeason(yr), fetchSeason(yr - 1)]);
+
+  if (cur.length < 50) return prev; // season hasn't started yet — use prior year
+
+  const map = {};
+  prev.forEach(p => map[p.name] = p);
+
+  return cur.map(p26 => {
+    const p25 = map[p26.name];
+    if (!p25) return p26;
+    const w26 = Math.min(1, (p26.pa || 0) / 150), w25 = 1 - w26;
+    const avg  = p25.avg  * w25 + p26.avg  * w26;
+    const kpct = p25.kpct * w25 + p26.kpct * w26;
+    const cObp = p25.cObp * w25 + p26.cObp * w26;
+    const pcs  = avg * 0.55 + (1 - kpct) * 0.30;
+    return { ...p26, avg, kpct, cObp, pcs };
+  }).sort((a,b) => b.pcs - a.pcs);
+}
+
+async function fetchPitchers() {
+  const yr = new Date().getFullYear();
+  async function getPitchers(year) {
+    try {
+      const data = await fetchJSON(`${MLB}/stats?stats=season&group=pitching&season=${year}&limit=1000`);
+      if (!data.stats || !data.stats[0] || !data.stats[0].splits) return null;
+      const map = {};
+      data.stats[0].splits.forEach(s => {
+        const st = s.stat, bf = st.battersFaced || 0, ks = st.strikeOuts || 0;
+        map[s.player.fullName] = { kRate: bf ? ks/bf : 0.22, era: parseFloat(st.era) || 4.00 };
+      });
+      return map;
+    } catch(e) { return null; }
+  }
+  return (await getPitchers(yr)) || (await getPitchers(yr - 1)) || {};
+}
+
+// ── MATCHUP MODEL ──
+function buildMatchups(players, games, pitchers) {
+  const teamsToday = new Set();
+  games.forEach(g => { teamsToday.add(g.home); teamsToday.add(g.away); });
+
+  return players
+    .filter(p => teamsToday.has(p.team))
+    .map(p => {
+      const game = games.find(g => g.home === p.team || g.away === p.team);
+      if (!game) return null;
+      const opp = p.team === game.home ? game.awayPitcher : game.homePitcher;
+      if (!opp || opp === "TBD") return null;
+      const pit = pitchers[opp] || { kRate: 0.22, era: 4.00 };
+      const score =
+        p.avg * 0.45 +
+        (1 - p.kpct) * 0.25 +
+        (1 - pit.kRate) * 0.20 +
+        (5 - Math.min(pit.era, 5)) / 5 * 0.10;
+      return { ...p, oppPitcher: opp, matchupScore: score };
+    })
+    .filter(Boolean)
+    .sort((a,b) => b.matchupScore - a.matchupScore);
+}
+
+// ── SCORE COLOR ──
+function scoreColor(s) {
+  if (s >= 0.70) return 'score-high';
+  if (s >= 0.60) return 'score-mid';
+  return 'score-low';
+}
+
+// ── RENDER: MATCHUPS ──
+function renderMatchups(matchupPlayers, games) {
+  const el = document.getElementById('matchups-content');
+  if (!matchupPlayers.length) {
+    el.innerHTML = `<div class="error-box">No matchup data — probable pitchers may not be announced yet. Try refreshing after 10am ET.<br><br>Games today: ${games.map(g => g.away + ' @ ' + g.home + ' (' + g.awayPitcher + ' vs ' + g.homePitcher + ')').join('<br>')}</div>`;
+    return;
+  }
+
+  const top30 = matchupPlayers.slice(0, 30);
+
+  el.innerHTML = `
+    <div class="section-title">Today's Best Matchups <span class="pill">${top30.length} players</span></div>
+    <div class="stats-row">
+      <div class="stat-chip"><div class="stat-chip-label">Games Today</div><div class="stat-chip-val">${games.length}</div></div>
+      <div class="stat-chip"><div class="stat-chip-label">Top Score</div><div class="stat-chip-val">${top30[0] ? top30[0].matchupScore.toFixed(3) : '—'}</div></div>
+      <div class="stat-chip"><div class="stat-chip-label">Elite Picks</div><div class="stat-chip-val">${matchupPlayers.filter(p => p.matchupScore >= 0.68).length}</div></div>
+    </div>
+    <table class="data-table">
+      <thead><tr>
+        <th>#</th><th>Player</th><th>Team</th><th>Opp Pitcher</th><th>AVG</th><th>K%</th><th>Score</th>
+      </tr></thead>
+      <tbody>
+        ${top30.map((p,i) => `
+          <tr>
+            <td class="rank">${i+1}</td>
+            <td class="player-name">${p.name}</td>
+            <td><span class="team-badge">${p.team}</span></td>
+            <td style="color:var(--subtext);font-size:0.72rem;">${p.oppPitcher}</td>
+            <td>${p.avg.toFixed(3)}</td>
+            <td>${(p.kpct*100).toFixed(1)}%</td>
+            <td class="score-cell ${scoreColor(p.matchupScore)}">${p.matchupScore.toFixed(3)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── RENDER: PROPS ──
+function renderProps(players) {
+  const el = document.getElementById('props-content');
+
+  const modeled = players.map(p => {
+    const hitProb  = p.cObp * (1 - p.kpct * 0.5);
+    const projHits = hitProb * 4;
+    const projTB   = (p.slg || 0) * 4;
+    const edge     = projHits + projTB;
+    return { ...p, hitProb, projHits, projTB, edge, over: edge > 2 };
+  }).sort((a,b) => b.edge - a.edge).slice(0, 40);
+
+  if (!modeled.length) { el.innerHTML = '<div class="error-box">No prop data available.</div>'; return; }
+
+  el.innerHTML = `
+    <div class="section-title">Prop Model <span class="pill">${modeled.filter(p=>p.over).length} OVER signals</span></div>
+    <table class="data-table">
+      <thead><tr>
+        <th>#</th><th>Player</th><th>Team</th><th>Hit%</th><th>Proj Hits</th><th>Proj TB</th><th>Signal</th>
+      </tr></thead>
+      <tbody>
+        ${modeled.map((p,i) => `
+          <tr>
+            <td class="rank">${i+1}</td>
+            <td class="player-name">${p.name}</td>
+            <td><span class="team-badge">${p.team}</span></td>
+            <td>${(p.hitProb*100).toFixed(1)}%</td>
+            <td>${p.projHits.toFixed(2)}</td>
+            <td>${p.projTB.toFixed(2)}</td>
+            <td class="${p.over ? 'signal-over' : 'signal-pass'}">${p.over ? '💰 OVER' : 'PASS'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── RENDER: NRFI ──
+function renderNRFI(games, pitchers) {
+  const el = document.getElementById('nrfi-content');
+
+  if (!games.length) { el.innerHTML = '<div class="error-box">No games found for today.</div>'; return; }
+
+  const scored = games.map(g => {
+    const hp = pitchers[g.homePitcher] || { kRate:0.22, era:4 };
+    const ap = pitchers[g.awayPitcher] || { kRate:0.22, era:4 };
+    const score = (
+      (5 - Math.min(hp.era,5))/5 + hp.kRate +
+      (5 - Math.min(ap.era,5))/5 + ap.kRate
+    ) / 4;
+    return { ...g, score };
+  }).sort((a,b) => b.score - a.score);
+
+  const best = scored[0] ? scored[0].score : 1;
+
+  el.innerHTML = `
+    <div class="section-title">NRFI Board <span class="pill">${games.length} games</span></div>
+    <div class="nrfi-grid">
+      ${scored.map(g => `
+        <div class="nrfi-card">
+          <div class="nrfi-matchup">${g.away} @ ${g.home}</div>
+          <div class="nrfi-pitchers">
+            ↗ ${g.awayPitcher}<br>
+            ↘ ${g.homePitcher}
+          </div>
+          <div class="nrfi-score-row">
+            <div class="nrfi-score-label">NRFI Score</div>
+            <div class="nrfi-score-val" style="color:${g.score >= 0.55 ? 'var(--green)' : g.score >= 0.45 ? 'var(--accent)' : 'var(--subtext)'}">${g.score.toFixed(3)}</div>
+          </div>
+          <div class="nrfi-bar"><div class="nrfi-bar-fill" style="width:${(g.score/best*100).toFixed(1)}%"></div></div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+// ── RENDER: LEADERBOARD ──
+function renderLeaderboard(players) {
+  const el = document.getElementById('leaderboard-content');
+  const top = players.slice(0, 50);
+
+  el.innerHTML = `
+    <div class="section-title">Season Leaderboard <span class="pill">Blended PCS</span></div>
+    <table class="data-table">
+      <thead><tr>
+        <th>#</th><th>Player</th><th>Team</th><th>AVG</th><th>K%</th><th>cOBP</th><th>PCS</th>
+      </tr></thead>
+      <tbody>
+        ${top.map((p,i) => `
+          <tr>
+            <td class="rank">${i+1}</td>
+            <td class="player-name">${p.name}</td>
+            <td><span class="team-badge">${p.team}</span></td>
+            <td>${p.avg.toFixed(3)}</td>
+            <td>${(p.kpct*100).toFixed(1)}%</td>
+            <td>${p.cObp.toFixed(3)}</td>
+            <td class="score-cell">${(p.pcs||0).toFixed(3)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── MAIN LOAD ──
+async function loadAll() {
+  // Reset to loaders
+  ['matchups','props','nrfi','leaderboard'].forEach(id => {
+    document.getElementById(id + '-content').innerHTML =
+      `<div class="loader">LOADING ${id.toUpperCase()}<div class="loader-bar"><div class="loader-bar-fill"></div></div></div>`;
+  });
+
+  try {
+    const [games, players, pitchers] = await Promise.all([fetchGames(), fetchPlayers(), fetchPitchers()]);
+    const matchupPlayers = buildMatchups(players, games, pitchers);
+
+    renderMatchups(matchupPlayers, games);
+    renderProps(matchupPlayers.length ? matchupPlayers : players);
+    renderNRFI(games, pitchers);
+    renderLeaderboard(players);
+  } catch(e) {
+    ['matchups','props','nrfi','leaderboard'].forEach(id => {
+      document.getElementById(id + '-content').innerHTML =
+        `<div class="error-box">Failed to load data: ${e.message}</div>`;
+    });
+  }
+}
+
+setDate();
+loadAll();
+</script>
+</body>
+</html>
